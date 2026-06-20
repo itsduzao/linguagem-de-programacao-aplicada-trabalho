@@ -60,8 +60,11 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-                self.mediator.handle_enter()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+                elif event.key == pygame.K_RETURN:
+                    self.mediator.handle_enter()
 
     def _draw(self) -> None:
         self.screen.blit(self.background, (0, 0))
