@@ -33,10 +33,10 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
 
-        self.title_font = pygame.font.Font(None, 82)
-        self.large_font = pygame.font.Font(None, 54)
-        self.medium_font = pygame.font.Font(None, 34)
-        self.small_font = pygame.font.Font(None, 26)
+        self.title_font = self._create_font(82)
+        self.large_font = self._create_font(54)
+        self.medium_font = self._create_font(34)
+        self.small_font = self._create_font(26)
 
         ship_image = load_image(SHIP_IMAGE, size=(64, 64))
         meteor_image = load_image(METEOR_IMAGE, size=(54, 54))
@@ -124,3 +124,11 @@ class Game:
     ) -> None:
         rendered = font.render(text, True, color)
         self.screen.blit(rendered, (x_position, y_position))
+
+    @staticmethod
+    def _create_font(size: int) -> pygame.font.Font:
+        font_name = pygame.font.match_font("DejaVu Sans")
+        if font_name is not None:
+            return pygame.font.Font(font_name, size)
+
+        return pygame.font.Font(None, size)
