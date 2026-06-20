@@ -1,276 +1,177 @@
 <!doctype html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Desvio Astral - Online</title>
   <style>
     :root {
-      color-scheme: dark;
-      font-family: Arial, Helvetica, sans-serif;
       background: #080a19;
       color: #f5f5f5;
+      color-scheme: dark;
+      font-family: Arial, Helvetica, sans-serif;
     }
 
     body {
-      align-items: center;
       display: flex;
       flex-direction: column;
-      gap: 12px;
       justify-content: center;
+      align-items: center;
+      gap: 12px;
       margin: 0;
-      min-height: 100vh;
       padding: 16px;
+      min-height: 100vh;
     }
 
     canvas {
-      background: radial-gradient(circle at top, #17224f 0%, #080a19 60%);
+      box-shadow: 0 0 32px rgb(90 180 255 / 35%);
       border: 2px solid #5ab4ff;
       border-radius: 12px;
-      box-shadow: 0 0 32px rgb(90 180 255 / 35%);
+      background: radial-gradient(circle at top, #17224f 0%, #080a19 60%);
       max-width: 100%;
     }
 
     .hint {
+      margin: 0;
       color: #b9d8ff;
       font-size: 14px;
-      margin: 0;
       text-align: center;
     }
   </style>
 </head>
+
 <body>
   <canvas id="game" width="800" height="600" aria-label="Desvio Astral"></canvas>
-  <p class="hint">Use ← / → para mover. Pressione ENTER para iniciar ou reiniciar.</p>
-
+  <p class="hint">Use &#x2190; / &#x2192; para mover. Pressione ENTER para iniciar ou reiniciar.</p>
   <script>
     const canvas = document.getElementById('game');
-    const context = canvas.getContext('2d');
-
-    const WIDTH = canvas.width;
-    const HEIGHT = canvas.height;
-    const STATES = Object.freeze({
-      START_MENU: 'START_MENU',
-      GAMEPLAY: 'GAMEPLAY',
-      VICTORY: 'VICTORY',
-      GAME_OVER: 'GAME_OVER',
-    });
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const STATES = Object.freeze({ START_MENU: 'START_MENU', GAMEPLAY: 'GAMEPLAY', VICTORY: 'VICTORY', GAME_OVER: 'GAME_OVER' });
 
     const keys = new Set();
-    const sprites = {"ship":[[16,8,1,"#161826"],[14,9,1,"#161826"],[15,9,3,"#58ff8e"],[18,9,1,"#161826"],[14,10,1,"#161826"],[15,10,3,"#58ff8e"],[18,10,1,"#161826"],[13,11,1,"#58ff8e"],[14,11,2,"#161826"],[16,11,1,"#9a58d8"],[17,11,2,"#161826"],[19,11,1,"#58ff8e"],[13,12,1,"#58ff8e"],[14,12,1,"#9a58d8"],[15,12,1,"#e6d2ff"],[16,12,3,"#9a58d8"],[19,12,1,"#58ff8e"],[13,13,1,"#58ff8e"],[14,13,3,"#e6d2ff"],[17,13,2,"#9a58d8"],[19,13,1,"#58ff8e"],[13,14,2,"#9a58d8"],[15,14,1,"#e6d2ff"],[16,14,4,"#9a58d8"],[13,15,1,"#58ff8e"],[14,15,5,"#9a58d8"],[19,15,1,"#58ff8e"],[13,16,1,"#58ff8e"],[14,16,5,"#9a58d8"],[19,16,1,"#58ff8e"],[12,17,1,"#161826"],[13,17,1,"#58ff8e"],[14,17,1,"#e4ecec"],[15,17,1,"#f5f8f0"],[16,17,1,"#9a58d8"],[17,17,1,"#f5f8f0"],[18,17,1,"#80919c"],[19,17,1,"#58ff8e"],[20,17,1,"#161826"],[12,18,1,"#161826"],[13,18,1,"#58ff8e"],[14,18,1,"#e4ecec"],[15,18,3,"#f5f8f0"],[18,18,1,"#80919c"],[19,18,1,"#58ff8e"],[20,18,1,"#161826"],[12,19,1,"#161826"],[13,19,1,"#58ff8e"],[14,19,1,"#e4ecec"],[15,19,3,"#f5f8f0"],[18,19,1,"#80919c"],[19,19,1,"#58ff8e"],[20,19,1,"#161826"],[11,20,2,"#161826"],[13,20,1,"#58ff8e"],[14,20,1,"#e4ecec"],[15,20,3,"#f5f8f0"],[18,20,1,"#80919c"],[19,20,1,"#58ff8e"],[20,20,2,"#161826"],[11,21,2,"#161826"],[13,21,1,"#58ff8e"],[14,21,4,"#e4ecec"],[18,21,1,"#80919c"],[19,21,1,"#58ff8e"],[20,21,2,"#161826"],[9,22,1,"#161826"],[10,22,4,"#58ff8e"],[14,22,5,"#363f4f"],[19,22,4,"#58ff8e"],[23,22,1,"#161826"],[9,23,1,"#161826"],[10,23,4,"#58ff8e"],[14,23,5,"#363f4f"],[19,23,4,"#58ff8e"],[23,23,1,"#161826"],[9,24,1,"#161826"],[10,24,3,"#58ff8e"],[13,24,1,"#161826"],[14,24,5,"#363f4f"],[19,24,1,"#161826"],[20,24,3,"#58ff8e"],[23,24,1,"#161826"],[9,25,4,"#161826"],[15,25,3,"#ffd84f"],[20,25,4,"#161826"],[15,26,3,"#ffd84f"],[16,27,1,"#ff7c40"]],"meteor":[[11,6,1,"#41384e"],[15,6,1,"#41384e"],[7,7,4,"#41384e"],[11,7,1,"#755d65"],[12,7,3,"#41384e"],[15,7,1,"#755d65"],[16,7,2,"#41384e"],[18,7,1,"#a1776e"],[19,7,3,"#41384e"],[6,8,1,"#41384e"],[7,8,5,"#755d65"],[12,8,1,"#41384e"],[13,8,3,"#755d65"],[16,8,5,"#a1776e"],[21,8,1,"#755d65"],[22,8,3,"#41384e"],[5,9,1,"#41384e"],[6,9,4,"#755d65"],[10,9,1,"#a1776e"],[11,9,2,"#755d65"],[13,9,1,"#be917d"],[14,9,1,"#41384e"],[15,9,7,"#a1776e"],[22,9,3,"#755d65"],[25,9,1,"#41384e"],[4,10,1,"#41384e"],[5,10,3,"#755d65"],[8,10,5,"#a1776e"],[13,10,1,"#755d65"],[14,10,2,"#be917d"],[16,10,5,"#a1776e"],[21,10,5,"#755d65"],[26,10,1,"#41384e"],[4,11,1,"#41384e"],[5,11,2,"#755d65"],[7,11,7,"#a1776e"],[14,11,2,"#755d65"],[16,11,1,"#be917d"],[17,11,1,"#41384e"],[18,11,1,"#be917d"],[19,11,7,"#755d65"],[26,11,1,"#41384e"],[4,12,1,"#41384e"],[5,12,3,"#755d65"],[8,12,4,"#a1776e"],[12,12,3,"#41384e"],[15,12,2,"#755d65"],[17,12,4,"#be917d"],[21,12,6,"#755d65"],[27,12,1,"#41384e"],[3,13,1,"#41384e"],[4,13,2,"#755d65"],[6,13,1,"#be917d"],[7,13,3,"#755d65"],[10,13,1,"#a1776e"],[11,13,1,"#755d65"],[12,13,3,"#41384e"],[15,13,4,"#755d65"],[19,13,1,"#be917d"],[20,13,1,"#41384e"],[21,13,1,"#be917d"],[22,13,1,"#845e5b"],[23,13,4,"#755d65"],[27,13,1,"#41384e"],[3,14,1,"#41384e"],[4,14,1,"#755d65"],[5,14,1,"#41384e"],[6,14,1,"#755d65"],[7,14,2,"#be917d"],[9,14,3,"#755d65"],[12,14,3,"#41384e"],[15,14,4,"#755d65"],[19,14,2,"#845e5b"],[21,14,1,"#41384e"],[22,14,2,"#be917d"],[24,14,2,"#845e5b"],[26,14,1,"#755d65"],[27,14,1,"#41384e"],[3,15,1,"#41384e"],[4,15,2,"#755d65"],[6,15,2,"#41384e"],[8,15,1,"#504256"],[9,15,2,"#be917d"],[11,15,6,"#755d65"],[17,15,1,"#504256"],[18,15,4,"#845e5b"],[22,15,2,"#41384e"],[24,15,1,"#be917d"],[25,15,2,"#845e5b"],[27,15,1,"#41384e"],[2,16,1,"#41384e"],[3,16,4,"#755d65"],[7,16,1,"#504256"],[8,16,2,"#41384e"],[10,16,1,"#755d65"],[11,16,2,"#be917d"],[13,16,2,"#755d65"],[15,16,5,"#504256"],[20,16,4,"#845e5b"],[24,16,1,"#41384e"],[25,16,1,"#845e5b"],[26,16,2,"#755d65"],[28,16,1,"#41384e"],[3,17,1,"#41384e"],[4,17,2,"#755d65"],[6,17,4,"#504256"],[10,17,2,"#41384e"],[12,17,2,"#755d65"],[14,17,7,"#504256"],[21,17,1,"#755d65"],[22,17,1,"#845e5b"],[23,17,2,"#755d65"],[25,17,3,"#41384e"],[3,18,1,"#41384e"],[4,18,3,"#755d65"],[7,18,3,"#504256"],[10,18,2,"#755d65"],[12,18,2,"#41384e"],[14,18,1,"#755d65"],[15,18,5,"#504256"],[20,18,7,"#755d65"],[27,18,1,"#41384e"],[3,19,1,"#41384e"],[4,19,4,"#755d65"],[8,19,1,"#504256"],[9,19,4,"#755d65"],[13,19,1,"#845e5b"],[14,19,1,"#755d65"],[15,19,1,"#41384e"],[16,19,1,"#755d65"],[17,19,1,"#504256"],[18,19,1,"#755d65"],[19,19,3,"#41384e"],[22,19,6,"#755d65"],[28,19,1,"#41384e"],[4,20,1,"#41384e"],[5,20,1,"#755d65"],[6,20,1,"#41384e"],[7,20,3,"#755d65"],[10,20,6,"#845e5b"],[16,20,2,"#41384e"],[18,20,1,"#755d65"],[19,20,3,"#41384e"],[22,20,2,"#755d65"],[24,20,1,"#504256"],[25,20,2,"#755d65"],[27,20,1,"#41384e"],[3,21,1,"#41384e"],[4,21,1,"#755d65"],[5,21,3,"#41384e"],[8,21,1,"#755d65"],[9,21,9,"#845e5b"],[18,21,4,"#41384e"],[22,21,1,"#755d65"],[23,21,3,"#504256"],[26,21,1,"#755d65"],[27,21,1,"#41384e"],[4,22,1,"#41384e"],[5,22,1,"#755d65"],[6,22,1,"#41384e"],[7,22,1,"#755d65"],[8,22,2,"#be917d"],[10,22,7,"#845e5b"],[17,22,3,"#755d65"],[20,22,1,"#41384e"],[21,22,1,"#755d65"],[22,22,5,"#504256"],[27,22,1,"#41384e"],[4,23,1,"#41384e"],[5,23,3,"#755d65"],[8,23,2,"#41384e"],[10,23,2,"#be917d"],[12,23,1,"#755d65"],[13,23,1,"#845e5b"],[14,23,7,"#755d65"],[21,23,2,"#41384e"],[23,23,3,"#504256"],[26,23,1,"#41384e"],[5,24,1,"#41384e"],[6,24,4,"#755d65"],[10,24,2,"#41384e"],[12,24,2,"#be917d"],[14,24,9,"#755d65"],[23,24,3,"#41384e"],[6,25,3,"#41384e"],[9,25,1,"#755d65"],[10,25,4,"#41384e"],[14,25,2,"#be917d"],[16,25,4,"#41384e"],[20,25,1,"#755d65"],[21,25,5,"#41384e"],[9,26,1,"#41384e"],[14,26,2,"#41384e"],[20,26,1,"#41384e"],[16,27,2,"#41384e"]]};
-    let state = STATES.START_MENU;
-    let lastTime = performance.now();
-    let elapsedTime = 0;
-    let score = 0;
-    let finalScore = 0;
-    let spawnTimer = 0;
-    let meteors = [];
 
-    const ship = {
-      width: 48,
-      height: 56,
-      x: WIDTH / 2 - 24,
-      y: HEIGHT - 86,
-      speed: 420,
-    };
+    const shipImg = new Image();
+    shipImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAYpJREFUaIHt1zFLw0AYBuC3Wh0y6dKpWIoIGRwka12ELuLQ/IBMdcpiAwFXcRUC1SVTO/kDzCCCOKarODgUpEigi05OGTQhDmlDUiME+12h+D1Tc5fcdy+5JFeAMcYYY4wxxpZUSdC40aLqiQgQnRkXuR3n3VPymtQBksm/vw4zHZW6DIA+BGWAzORtp5/p1FttISHKFIOkTSe/9WDCrPkAAMuTYDetTAgqVHcg0lttAIDt9LHdPcbJ0Tr2y6sAADcIcXX7iZHRQ/o8ivor8w6Q52t3o1AbBSEBFklIgLXnj0JtFEgDKJoKvdXGyOjB8iS4QQg3CGF5UrL+FU2lLEn/FgLiV6bdtNCZaRNBSABFU6HntD1e35DXEvoQK5pKvmRmUQSI/rI8Jtf8tukrTMgSGg+GqNRljAfxfij9mxppgOnEAaDakHP7qIOQBLg/KE2+tG8waz6kp8Mf51QbMvy9O1ieBGAz/i4489cm2wulDy5f9GQfNOUGITo7Nnn9pf9HxhhjjDH2n30Dm9N7drXW9b0AAAAASUVORK5CYII=';
+    const meteorImg = new Image();
+    meteorImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAAAXNSR0IArs4c6QAABAFJREFUeJztmj1LK1EQht9cLqQVUmyZIGFLbRK2S5l/IKQWbMSfE24jWAf8B5Z2wTRahiBJmUKwTbW32Mw6Ozmbjd6P2eD7gKBnP9yd98zHmbMAIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEKOnYb3A1SQVhyv+/NX4vYClxdXpcfu7m9TAPh1cwMAmK03AIDFcpWfM0piXI/H9tKjE+Sn9wNoxPCD/hDdTjsf70XN7W/ZmAghAgnX43GKIxPhh/cDCHf3t+nZ6TkG/WE+JjNfECFGSVwYn0znmEznIkhV2KoVrh4gM/nx6SE9Oz3HSSsqzHxgVwTLbL1Bt9MueMUxeYK7B4jxQyyWq0LcF2brTS6MeEW308ZkOgeAo/IEVwG08U9aEYAPr+hFzdwbtBAf+QCHilBrIdzcdNAf7gggBheDllU/ghXAMltvsFiu8Pj0IEO1C0ueD5RKwn1/W+ceIAa2sd+GIn1emQByXOUaGa6NEK5JeJTEmYEOPF8n28l0jlES58aX0CP3tddlZII/Pj3UJkm7J2EAhconFFb07LdVkh6XY1oMfZ9up41REtcqSXsJkA76Q0ym80ICFawIoyQuzOp9pWpIoF7UzH+Euojg5YapXnCNkrgwa20yBsoXZfb4YrnKxdL3lP9jz7+7vwUcw1EtBAgRakVoEfYlXiAzvi5jBSuCtwCuOcCGFo2u/XVI0qFk3ypZC1iWN3pR0z0UuVVBuowMzdRDWhK2AtJi9qLmTm6wpawNUR64ekDZDLYrYGs47QU61IhBrceUIddtw6GLF7gKsM84vaiJURIH2xGhqmefx4gQoSRcFp7+F24CyGy1IohB9CzWNX4oL1h0jqjqpnrjXgXpkvGQXCDHQqUqsNuaqKqcvCshdwEEbdCqWVslAlCeX0Lnbrc2XWxRi1aExbYhysKUDkdicBt2bCK3xz2ND/gJ0FCdyQI6tutQVLXw0tcC4c0c/Xdd8oNrO1q2IYV9FYkWQBK49oSv5A/g+7YigK0AAPaKoI1bllzlnH29I3tPINsfuLy4amxFcMFtJTzoDxuyI/b+ts7HZW8gtHINGdWGFQDBdkUxhO3e2wvXJDzoDxsvr88AMi/QnhAKFxZtxLJEK2LIpyuCzP6/9zZfw3VPWNCfpVQREuTQ2Sye9vL6XDD+twxBGglHg1a4Ra33jD9rbMvL6zMG/WFD5xZP3ATYfflMBCDzjjIDhtACCfK3vo8Y/4uP/E+ohQcAIkhmHBFCf7AVMnKVSDrkAKid8YEafBmgv5K24UWEAIpiVHHSivQnKEHDB9YCLrgL8Ak+268/pncjhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQv6E3xBmThpdw0e+AAAAAElFTkSuQmCC';
+    let assetsLoaded = 0;
+    shipImg.onload = () => assetsLoaded++;
+    meteorImg.onload = () => assetsLoaded++;
 
-    const config = Object.freeze({
-      baseMeteorSpeed: 180,
-      baseSpawnInterval: 0.9,
-      minSpawnInterval: 0.18,
-      difficultyInterval: 10,
-      meteorSpeedIncrement: 35,
-      spawnIntervalDecrement: 0.07,
-      winSurvivalSeconds: 120,
-      winScore: 10000,
-      pointsPerSecond: 85,
+    let state = STATES.START_MENU, lastTime = performance.now();
+    let elapsedTime = 0, score = 0, finalScore = 0, spawnTimer = 0, meteors = [];
+
+    const ship = { width: 64, height: 64, x: W / 2 - 32, y: H - 96, speed: 420 };
+
+    const cfg = Object.freeze({
+      baseMeteorSpeed: 180, baseSpawnInterval: 0.9, minSpawnInterval: 0.18,
+      difficultyInterval: 10, meteorSpeedIncrement: 35, spawnIntervalDecrement: 0.07,
+      winSurvivalSeconds: 120, winScore: 10000, pointsPerSecond: 85,
     });
 
-    window.addEventListener('keydown', (event) => {
-      keys.add(event.key);
-      if (event.key === 'Enter' && state !== STATES.GAMEPLAY) {
-        startGame();
-      }
+    window.addEventListener('keydown', e => {
+      keys.add(e.key);
+      if (e.key === 'Enter' && state !== STATES.GAMEPLAY) startGame();
     });
-
-    window.addEventListener('keyup', (event) => {
-      keys.delete(event.key);
-    });
+    window.addEventListener('keyup', e => keys.delete(e.key));
 
     function startGame() {
-      state = STATES.GAMEPLAY;
-      elapsedTime = 0;
-      score = 0;
-      finalScore = 0;
-      spawnTimer = 0;
-      meteors = [];
-      ship.x = WIDTH / 2 - ship.width / 2;
-      ship.y = HEIGHT - 86;
+      state = STATES.GAMEPLAY; elapsedTime = 0; score = 0; finalScore = 0;
+      spawnTimer = 0; meteors = [];
+      ship.x = W / 2 - ship.width / 2; ship.y = H - 96;
       lastTime = performance.now();
     }
 
-    function difficultyLevel() {
-      return Math.floor(elapsedTime / config.difficultyInterval);
-    }
-
-    function currentSpawnInterval() {
-      return Math.max(
-        config.minSpawnInterval,
-        config.baseSpawnInterval - difficultyLevel() * config.spawnIntervalDecrement,
-      );
-    }
-
-    function currentMeteorSpeed() {
-      return config.baseMeteorSpeed + difficultyLevel() * config.meteorSpeedIncrement;
-    }
+    const diffLevel = () => Math.floor(elapsedTime / cfg.difficultyInterval);
+    const spawnInterval = () => Math.max(cfg.minSpawnInterval, cfg.baseSpawnInterval - diffLevel() * cfg.spawnIntervalDecrement);
+    const meteorSpeed = () => cfg.baseMeteorSpeed + diffLevel() * cfg.meteorSpeedIncrement;
 
     function spawnMeteor() {
-      const size = 34 + Math.random() * 22;
+      const size = 48 + Math.random() * 40;
       meteors.push({
-        x: Math.random() * (WIDTH - size),
-        y: -size,
-        size,
-        speed: currentMeteorSpeed(),
+        x: Math.random() * (W - size), y: -size, size, speed: meteorSpeed(),
+        rotation: Math.random() * Math.PI * 2, rotSpeed: (Math.random() - 0.5) * 1.5
       });
     }
 
-    function rectsCollide(first, second) {
-      return first.x < second.x + second.width
-        && first.x + first.width > second.x
-        && first.y < second.y + second.height
-        && first.y + first.height > second.y;
+    function collides(s, m) {
+      const sh = 0.8;
+      const sx = s.x + s.width * (1 - sh) / 2, sy = s.y + s.height * (1 - sh) / 2;
+      const sw = s.width * sh, sH = s.height * sh;
+      const mx = m.x + m.size * (1 - sh) / 2, my = m.y + m.size * (1 - sh) / 2, ms = m.size * sh;
+      return sx < mx + ms && sx + sw > mx && sy < my + ms && sy + sH > my;
     }
 
-    function update(deltaTime) {
-      if (state !== STATES.GAMEPLAY) {
-        return;
-      }
-
-      elapsedTime += deltaTime;
-      score = Math.floor(elapsedTime * config.pointsPerSecond);
-
-      if (keys.has('ArrowLeft')) {
-        ship.x -= ship.speed * deltaTime;
-      }
-      if (keys.has('ArrowRight')) {
-        ship.x += ship.speed * deltaTime;
-      }
-      ship.x = Math.max(0, Math.min(WIDTH - ship.width, ship.x));
-
-      spawnTimer += deltaTime;
-      if (spawnTimer >= currentSpawnInterval()) {
-        spawnMeteor();
-        spawnTimer = 0;
-      }
-
-      meteors.forEach((meteor) => {
-        meteor.y += meteor.speed * deltaTime;
-      });
-      meteors = meteors.filter((meteor) => meteor.y <= HEIGHT + meteor.size);
-
-      const shipRect = { x: ship.x, y: ship.y, width: ship.width, height: ship.height };
-      const collision = meteors.some((meteor) => rectsCollide(shipRect, {
-        x: meteor.x,
-        y: meteor.y,
-        width: meteor.size,
-        height: meteor.size,
-      }));
-
-      if (collision) {
-        finalScore = score;
-        state = STATES.GAME_OVER;
-      }
-
-      if (elapsedTime >= config.winSurvivalSeconds || score >= config.winScore) {
-        finalScore = score;
-        state = STATES.VICTORY;
-      }
+    function update(dt) {
+      if (state !== STATES.GAMEPLAY) return;
+      elapsedTime += dt; score = Math.floor(elapsedTime * cfg.pointsPerSecond);
+      if (keys.has('ArrowLeft')) ship.x -= ship.speed * dt;
+      if (keys.has('ArrowRight')) ship.x += ship.speed * dt;
+      ship.x = Math.max(0, Math.min(W - ship.width, ship.x));
+      spawnTimer += dt;
+      if (spawnTimer >= spawnInterval()) { spawnMeteor(); spawnTimer = 0; }
+      meteors.forEach(m => { m.y += m.speed * dt; m.rotation += m.rotSpeed * dt; });
+      meteors = meteors.filter(m => m.y <= H + m.size);
+      if (meteors.some(m => collides(ship, m))) { finalScore = score; state = STATES.GAME_OVER; }
+      if (elapsedTime >= cfg.winSurvivalSeconds || score >= cfg.winScore) { finalScore = score; state = STATES.VICTORY; }
     }
 
-    function drawBackground() {
-      context.clearRect(0, 0, WIDTH, HEIGHT);
-      context.fillStyle = '#080a19';
-      context.fillRect(0, 0, WIDTH, HEIGHT);
-      context.fillStyle = '#ffffff';
-      for (let i = 0; i < 80; i += 1) {
-        const x = (i * 97) % WIDTH;
-        const y = (i * 53) % HEIGHT;
-        context.globalAlpha = 0.25 + (i % 5) * 0.1;
-        context.fillRect(x, y, 2, 2);
+    function drawBg() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#080a19'; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 80; i++) {
+        ctx.globalAlpha = 0.25 + (i % 5) * 0.1;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect((i * 97) % W, (i * 53) % H, 2, 2);
       }
-      context.globalAlpha = 1;
+      ctx.globalAlpha = 1;
     }
 
-    function drawPixelSprite(sprite, x, y, width, height) {
-      const pixelWidth = width / 32;
-      const pixelHeight = height / 32;
-      sprite.forEach(([pixelX, pixelY, runLength, color]) => {
-        context.fillStyle = color;
-        context.fillRect(
-          x + pixelX * pixelWidth,
-          y + pixelY * pixelHeight,
-          runLength * pixelWidth,
-          pixelHeight,
-        );
-      });
-    }
-
-    function drawShip() {
-      drawPixelSprite(sprites.ship, ship.x, ship.y, ship.width, ship.height);
-    }
-
-    function drawMeteor(meteor) {
-      drawPixelSprite(sprites.meteor, meteor.x, meteor.y, meteor.size, meteor.size);
-    }
-
-    function drawCenteredText(text, size, color, y) {
-      context.fillStyle = color;
-      context.font = `${size}px Arial`;
-      context.textAlign = 'center';
-      context.fillText(text, WIDTH / 2, y);
-    }
-
-    function drawHud() {
-      context.fillStyle = '#f5f5f5';
-      context.font = '28px Arial';
-      context.textAlign = 'left';
-      context.fillText(`Score: ${score}`, 20, 38);
-      context.fillText(`Time: ${Math.floor(elapsedTime)}s`, 20, 72);
+    function centerText(text, size, color, y) {
+      ctx.fillStyle = color; ctx.font = size + 'px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(text, W / 2, y);
     }
 
     function draw() {
-      drawBackground();
-
+      drawBg();
+      if (assetsLoaded < 2) { centerText('Carregando...', 32, '#5ab4ff', H / 2); return; }
       if (state === STATES.START_MENU) {
-        drawCenteredText('Desvio Astral', 72, '#ffdc5a', 130);
-        drawCenteredText('2D Avoidance / Survival', 30, '#f5f5f5', 205);
-        drawCenteredText('← / → Arrow Keys - Move', 30, '#5ab4ff', 290);
-        drawCenteredText('ENTER - Start Game', 30, '#5ab4ff', 330);
-        drawCenteredText('Survive 120s or reach 10,000 points', 24, '#f5f5f5', 405);
+        centerText('Desvio Astral', 72, '#ffdc5a', 130);
+        centerText('2D Avoidance / Survival', 30, '#f5f5f5', 205);
+        centerText('\u2190 / \u2192 Arrow Keys - Move', 30, '#5ab4ff', 290);
+        centerText('ENTER - Start Game', 30, '#5ab4ff', 330);
+        centerText('Survive 120s or reach 10,000 points', 24, '#f5f5f5', 405);
       } else if (state === STATES.GAMEPLAY) {
-        drawShip();
-        meteors.forEach(drawMeteor);
-        drawHud();
+        ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
+        meteors.forEach(m => {
+          ctx.save();
+          ctx.translate(m.x + m.size / 2, m.y + m.size / 2);
+          ctx.rotate(m.rotation);
+          ctx.drawImage(meteorImg, -m.size / 2, -m.size / 2, m.size, m.size);
+          ctx.restore();
+        });
+        ctx.fillStyle = '#f5f5f5'; ctx.font = '28px Arial'; ctx.textAlign = 'left';
+        ctx.fillText('Score: ' + score, 20, 38);
+        ctx.fillText('Time: ' + Math.floor(elapsedTime) + 's', 20, 72);
       } else if (state === STATES.VICTORY) {
-        drawCenteredText('Mission Complete!', 52, '#78ffa0', 180);
-        drawCenteredText(`Final Score: ${finalScore}`, 32, '#f5f5f5', 265);
-        drawCenteredText('Press ENTER to Play Again', 32, '#5ab4ff', 340);
+        centerText('Mission Complete!', 52, '#78ffa0', 180);
+        centerText('Final Score: ' + finalScore, 32, '#f5f5f5', 265);
+        centerText('Press ENTER to Play Again', 32, '#5ab4ff', 340);
       } else if (state === STATES.GAME_OVER) {
-        drawCenteredText('Game Over', 52, '#ff5a5a', 180);
-        drawCenteredText(`Final Score: ${finalScore}`, 32, '#f5f5f5', 265);
-        drawCenteredText('Press ENTER to Retry', 32, '#5ab4ff', 340);
+        centerText('Game Over', 52, '#ff5a5a', 180);
+        centerText('Final Score: ' + finalScore, 32, '#f5f5f5', 265);
+        centerText('Press ENTER to Retry', 32, '#5ab4ff', 340);
       }
     }
 
-    function loop(currentTime) {
-      const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.05);
-      lastTime = currentTime;
-      update(deltaTime);
-      draw();
-      requestAnimationFrame(loop);
+    function loop(t) {
+      const dt = Math.min((t - lastTime) / 1000, 0.05);
+      lastTime = t; update(dt); draw(); requestAnimationFrame(loop);
     }
-
     requestAnimationFrame(loop);
   </script>
 </body>
+
 </html>

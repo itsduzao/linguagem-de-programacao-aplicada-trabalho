@@ -7,8 +7,8 @@ SCREEN_HEIGHT = 600
 FPS = 60
 
 ASSET_DIR = Path("assets")
-SHIP_IMAGE = ASSET_DIR / "ship.ppm"
-METEOR_IMAGE = ASSET_DIR / "meteor.ppm"
+SHIP_IMAGE = ASSET_DIR / "ship.png"
+METEOR_IMAGE = ASSET_DIR / "meteor.png"
 
 BACKGROUND_COLOR = (8, 10, 25)
 WHITE = (245, 245, 245)
