@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 import pygame
 
@@ -26,7 +27,14 @@ def load_image(
     if path.is_absolute():
         raise ValueError(f"Asset path must be relative: {path}")
 
-    surface = pygame.image.load(str(path)).convert_alpha()
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        base_path = Path(sys._MEIPASS)
+    else:
+        base_path = Path(".")
+
+    final_path = base_path / path
+
+    surface = pygame.image.load(str(final_path)).convert_alpha()
 
     if size is not None:
         surface = pygame.transform.smoothscale(surface, size).convert_alpha()
