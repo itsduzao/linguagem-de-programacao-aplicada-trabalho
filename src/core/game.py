@@ -32,6 +32,7 @@ class Game:
         pygame.display.set_caption("Desvio Astral")
         self.clock = pygame.time.Clock()
         self.running = True
+        self.background = self._create_background_surface()
 
         self.title_font = self._create_font(82)
         self.large_font = self._create_font(54)
@@ -63,7 +64,7 @@ class Game:
                 self.mediator.handle_enter()
 
     def _draw(self) -> None:
-        self.screen.fill(BACKGROUND_COLOR)
+        self.screen.blit(self.background, (0, 0))
 
         if self.mediator.state == GameState.START_MENU:
             self._draw_start_menu()
@@ -132,3 +133,24 @@ class Game:
             return pygame.font.Font(font_name, size)
 
         return pygame.font.Font(None, size)
+
+    @staticmethod
+    def _create_background_surface() -> pygame.Surface:
+        background = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        top_color = (23, 34, 79)
+        bottom_color = BACKGROUND_COLOR
+
+        for y_position in range(SCREEN_HEIGHT):
+            mix = y_position / max(1, SCREEN_HEIGHT - 1)
+            red = int(top_color[0] + (bottom_color[0] - top_color[0]) * mix)
+            green = int(top_color[1] + (bottom_color[1] - top_color[1]) * mix)
+            blue = int(top_color[2] + (bottom_color[2] - top_color[2]) * mix)
+            pygame.draw.line(background, (red, green, blue), (0, y_position), (SCREEN_WIDTH, y_position))
+
+        for index in range(80):
+            alpha = 64 + (index % 5) * 26
+            star_surface = pygame.Surface((2, 2), pygame.SRCALPHA)
+            star_surface.fill((255, 255, 255, alpha))
+            background.blit(star_surface, ((index * 97) % SCREEN_WIDTH, (index * 53) % SCREEN_HEIGHT))
+
+        return background
