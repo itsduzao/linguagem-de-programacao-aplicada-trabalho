@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desvio Astral - Online</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #080a19;
+      color: #f5f5f5;
+    }
+
+    body {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+      margin: 0;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    canvas {
+      background: radial-gradient(circle at top, #17224f 0%, #080a19 60%);
+      border: 2px solid #5ab4ff;
+      border-radius: 12px;
+      box-shadow: 0 0 32px rgb(90 180 255 / 35%);
+      max-width: 100%;
+    }
+
+    .hint {
+      color: #b9d8ff;
+      font-size: 14px;
+      margin: 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="800" height="600" aria-label="Desvio Astral"></canvas>
+  <p class="hint">Use ← / → para mover. Pressione ENTER para iniciar ou reiniciar.</p>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const context = canvas.getContext('2d');
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+    const STATES = Object.freeze({
+      START_MENU: 'START_MENU',
+      GAMEPLAY: 'GAMEPLAY',
+      VICTORY: 'VICTORY',
+      GAME_OVER: 'GAME_OVER',
+    });
+
+    const keys = new Set();
+    let state = STATES.START_MENU;
+    let lastTime = performance.now();
+    let elapsedTime = 0;
+    let score = 0;
+    let finalScore = 0;
+    let spawnTimer = 0;
+    let meteors = [];
+
+    const ship = {
+      width: 48,
+      height: 56,
+      x: WIDTH / 2 - 24,
+      y: HEIGHT - 86,
+      speed: 420,
+    };
+
+    const config = Object.freeze({
+      baseMeteorSpeed: 180,
+      baseSpawnInterval: 0.9,
+      minSpawnInterval: 0.18,
+      difficultyInterval: 10,
+      meteorSpeedIncrement: 35,
+      spawnIntervalDecrement: 0.07,
+      winSurvivalSeconds: 120,
+      winScore: 10000,
+      pointsPerSecond: 85,
+    });
+
+    window.addEventListener('keydown', (event) => {
+      keys.add(event.key);
+      if (event.key === 'Enter' && state !== STATES.GAMEPLAY) {
+        startGame();
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      keys.delete(event.key);
+    });
+
+    function startGame() {
+      state = STATES.GAMEPLAY;
+      elapsedTime = 0;
+      score = 0;
+      finalScore = 0;
+      spawnTimer = 0;
+      meteors = [];
+      ship.x = WIDTH / 2 - ship.width / 2;
+      ship.y = HEIGHT - 86;
+      lastTime = performance.now();
+    }
+
+    function difficultyLevel() {
+      return Math.floor(elapsedTime / config.difficultyInterval);
+    }
+
+    function currentSpawnInterval() {
+      return Math.max(
+        config.minSpawnInterval,
+        config.baseSpawnInterval - difficultyLevel() * config.spawnIntervalDecrement,
+      );
+    }
+
+    function currentMeteorSpeed() {
+      return config.baseMeteorSpeed + difficultyLevel() * config.meteorSpeedIncrement;
+    }
+
+    function spawnMeteor() {
+      const size = 34 + Math.random() * 22;
+      meteors.push({
+        x: Math.random() * (WIDTH - size),
+        y: -size,
+        size,
+        speed: currentMeteorSpeed(),
+      });
+    }
+
+    function rectsCollide(first, second) {
+      return first.x < second.x + second.width
+        && first.x + first.width > second.x
+        && first.y < second.y + second.height
+        && first.y + first.height > second.y;
+    }
+
+    function update(deltaTime) {
+      if (state !== STATES.GAMEPLAY) {
+        return;
+      }
+
+      elapsedTime += deltaTime;
+      score = Math.floor(elapsedTime * config.pointsPerSecond);
+
+      if (keys.has('ArrowLeft')) {
+        ship.x -= ship.speed * deltaTime;
+      }
+      if (keys.has('ArrowRight')) {
+        ship.x += ship.speed * deltaTime;
+      }
+      ship.x = Math.max(0, Math.min(WIDTH - ship.width, ship.x));
+
+      spawnTimer += deltaTime;
+      if (spawnTimer >= currentSpawnInterval()) {
+        spawnMeteor();
+        spawnTimer = 0;
+      }
+
+      meteors.forEach((meteor) => {
+        meteor.y += meteor.speed * deltaTime;
+      });
+      meteors = meteors.filter((meteor) => meteor.y <= HEIGHT + meteor.size);
+
+      const shipRect = { x: ship.x, y: ship.y, width: ship.width, height: ship.height };
+      const collision = meteors.some((meteor) => rectsCollide(shipRect, {
+        x: meteor.x,
+        y: meteor.y,
+        width: meteor.size,
+        height: meteor.size,
+      }));
+
+      if (collision) {
+        finalScore = score;
+        state = STATES.GAME_OVER;
+      }
+
+      if (elapsedTime >= config.winSurvivalSeconds || score >= config.winScore) {
+        finalScore = score;
+        state = STATES.VICTORY;
+      }
+    }
+
+    function drawBackground() {
+      context.clearRect(0, 0, WIDTH, HEIGHT);
+      context.fillStyle = '#080a19';
+      context.fillRect(0, 0, WIDTH, HEIGHT);
+      context.fillStyle = '#ffffff';
+      for (let i = 0; i < 80; i += 1) {
+        const x = (i * 97) % WIDTH;
+        const y = (i * 53) % HEIGHT;
+        context.globalAlpha = 0.25 + (i % 5) * 0.1;
+        context.fillRect(x, y, 2, 2);
+      }
+      context.globalAlpha = 1;
+    }
+
+    function drawShip() {
+      context.fillStyle = '#50b4ff';
+      context.beginPath();
+      context.moveTo(ship.x + ship.width / 2, ship.y);
+      context.lineTo(ship.x + ship.width, ship.y + ship.height);
+      context.lineTo(ship.x, ship.y + ship.height);
+      context.closePath();
+      context.fill();
+
+      context.fillStyle = '#ff9a2a';
+      context.fillRect(ship.x + 16, ship.y + ship.height - 8, 16, 14);
+    }
+
+    function drawMeteor(meteor) {
+      context.fillStyle = '#8c6955';
+      context.beginPath();
+      context.arc(
+        meteor.x + meteor.size / 2,
+        meteor.y + meteor.size / 2,
+        meteor.size / 2,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+      context.fillStyle = '#5e463a';
+      context.beginPath();
+      context.arc(meteor.x + meteor.size * 0.35, meteor.y + meteor.size * 0.4, meteor.size * 0.12, 0, Math.PI * 2);
+      context.arc(meteor.x + meteor.size * 0.68, meteor.y + meteor.size * 0.62, meteor.size * 0.1, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    function drawCenteredText(text, size, color, y) {
+      context.fillStyle = color;
+      context.font = `${size}px Arial`;
+      context.textAlign = 'center';
+      context.fillText(text, WIDTH / 2, y);
+    }
+
+    function drawHud() {
+      context.fillStyle = '#f5f5f5';
+      context.font = '28px Arial';
+      context.textAlign = 'left';
+      context.fillText(`Score: ${score}`, 20, 38);
+      context.fillText(`Time: ${Math.floor(elapsedTime)}s`, 20, 72);
+    }
+
+    function draw() {
+      drawBackground();
+
+      if (state === STATES.START_MENU) {
+        drawCenteredText('Desvio Astral', 72, '#ffdc5a', 130);
+        drawCenteredText('2D Avoidance / Survival', 30, '#f5f5f5', 205);
+        drawCenteredText('← / → Arrow Keys - Move', 30, '#5ab4ff', 290);
+        drawCenteredText('ENTER - Start Game', 30, '#5ab4ff', 330);
+        drawCenteredText('Survive 120s or reach 10,000 points', 24, '#f5f5f5', 405);
+      } else if (state === STATES.GAMEPLAY) {
+        drawShip();
+        meteors.forEach(drawMeteor);
+        drawHud();
+      } else if (state === STATES.VICTORY) {
+        drawCenteredText('Mission Complete!', 52, '#78ffa0', 180);
+        drawCenteredText(`Final Score: ${finalScore}`, 32, '#f5f5f5', 265);
+        drawCenteredText('Press ENTER to Play Again', 32, '#5ab4ff', 340);
+      } else if (state === STATES.GAME_OVER) {
+        drawCenteredText('Game Over', 52, '#ff5a5a', 180);
+        drawCenteredText(`Final Score: ${finalScore}`, 32, '#f5f5f5', 265);
+        drawCenteredText('Press ENTER to Retry', 32, '#5ab4ff', 340);
+      }
+    }
+
+    function loop(currentTime) {
+      const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.05);
+      lastTime = currentTime;
+      update(deltaTime);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
